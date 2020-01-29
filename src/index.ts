@@ -14,10 +14,15 @@ const main: (puppeteerCallback: (...args: any[]) => any, closeAfterCallback?: bo
     if (closeAfterCallback) await browser.close();
 };
 
-const saveDataToTxt: (path: string, data: string[] | Object[], toJson?: boolean) => void
-= (path, data, toJson = false) => {
-    for (let item of data) {
-        writeFile(path, toJson ? JSON.stringify(item, null, 2) : `${item}\n`, {flag: 'a+'}, console.log);
+const saveDataToTxt: (path: string, data: string[] | Object[], toJson?: boolean) => Promise<void>
+= async (path, data, toJson = false) => {
+    try {
+        for (let item of data) {
+            writeFile(path, toJson ? JSON.stringify(item, null, 2) : `${item}\n`, {flag: 'a+'}, console.log);
+        }
+        console.log('saved');
+    } catch (err) {
+        console.log(err);
     }
 }
 
@@ -81,21 +86,54 @@ const scrapeMatchesExample: puppeteerCallback
         .$eval(selector, container => 
             Array
             .from(container.children)
-            .map(child => {
+            .map(match => {
                 const getParticipant: (element: Element, home?: boolean) => string
                 = (el, home = true) => el.querySelector(`.event__participant--${home ? 'home' : 'away'}`)?.textContent!;
 
                 return ({
-                home: getParticipant(child),
-                away: getParticipant(child, false)
+                home: getParticipant(match),
+                away: getParticipant(match, false)
             })
         }));
 
-    saveDataToTxt('./data/tennisParticipantNames.txt', tennisMatchParticipants, true);
+    await saveDataToTxt('./data/tennisParticipantNames.txt', tennisMatchParticipants, true);
 }
 
-// const paginationExample
+const paginationExample: puppeteerCallback
+= async (page) => {
+    await page.goto('https://blog.scrapinghub.com/')
 
-// const SPAExample
+    const postContainerSelector = '.post-listing';
+    const paginationSelector = '.blog-pagination'
+    
+    const getPosts: () => Promise<void>
+    = async () => {
+        await page.waitForSelector(postContainerSelector);
+        await page.waitForSelector(paginationSelector);
 
-main(scrapeMatchesExample);
+        const posts = await page.$eval(postContainerSelector, container => Array.from(container.children).map(post => {
+            const header = post.querySelector('.post-header') as Element;
+            const content = post.querySelector('.post-content') as Element;
+    
+            return ({
+                title: header?.querySelector('h2')?.textContent,
+                date: header?.querySelector('.date'),
+                author: header?.querySelector('.author'),
+                commentCount: parseInt(header.querySelector('.custom_listing_comments')?.textContent!),
+                content: content.querySelector('p')?.textContent
+            });
+        }))
+    
+        saveDataToTxt('./data/posts.txt', posts, true);
+
+        const nextPage = await page.$('.next-posts-link');
+
+        if (nextPage) {
+            await nextPage.click();
+            await getPosts();
+        }
+    }
+    await getPosts();
+}
+
+main(paginationExample, false);
