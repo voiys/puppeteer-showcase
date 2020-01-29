@@ -70,35 +70,6 @@ const PDFExample: puppeteerCallback
     await page.pdf({path: './data/tennisPdf.pdf'})
 }
 
-const scrapeMatchesExample: puppeteerCallback
-= async (page) => {
-    await page.goto('https://flashscore.com/tennis');
-
-    const selector = '.sportName.tennis';
-
-    await page.waitForSelector(selector);
-
-    const tennisMatchParticipants: {
-        home: string;
-        away: string;
-    }[]
-    = await page
-        .$eval(selector, container => 
-            Array
-            .from(container.children)
-            .map(match => {
-                const getParticipant: (element: Element, home?: boolean) => string
-                = (el, home = true) => el.querySelector(`.event__participant--${home ? 'home' : 'away'}`)?.textContent!;
-
-                return ({
-                home: getParticipant(match),
-                away: getParticipant(match, false)
-            })
-        }));
-
-    await saveDataToTxt('./data/tennisParticipantNames.txt', tennisMatchParticipants, true);
-}
-
 const paginationExample: puppeteerCallback
 = async (page) => {
     await page.goto('https://blog.scrapinghub.com/')
@@ -134,6 +105,35 @@ const paginationExample: puppeteerCallback
         }
     }
     await getPosts();
+}
+
+const SPAExample: puppeteerCallback
+= async (page) => {
+    await page.goto('https://flashscore.com/tennis');
+
+    const selector = '.sportName.tennis';
+
+    await page.waitForSelector(selector);
+
+    const tennisMatchParticipants: {
+        home: string;
+        away: string;
+    }[]
+    = await page
+        .$eval(selector, container => 
+            Array
+            .from(container.children)
+            .map(match => {
+                const getParticipant: (element: Element, home?: boolean) => string
+                = (el, home = true) => el.querySelector(`.event__participant--${home ? 'home' : 'away'}`)?.textContent!;
+
+                return ({
+                home: getParticipant(match),
+                away: getParticipant(match, false)
+            })
+        }));
+
+    await saveDataToTxt('./data/tennisParticipantNames.txt', tennisMatchParticipants, true);
 }
 
 main(paginationExample, false);
